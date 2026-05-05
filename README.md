@@ -119,14 +119,14 @@ The residual gap (0.530 − 0.388 = 0.142) indicates that future prediction is c
 
 The recon–future correlation (r = 0.474) reveals that visual complexity is the dominant factor governing predictability: videos that are harder to reconstruct locally are also harder to predict forward in time.
 
-![Fixed Evaluation](LatentMaskedVideoPredictionFixedEvaluation.png)
+![Fixed Evaluation](Figures/LatentMaskedVideoPredictionFixedEvaluation.png)
 *Figure 1: Full evaluation results. Top row: reconstruction residual, future prediction residual, and predictor improvement by category. Bottom row: predictor vs copy-context baseline violin, improvement distribution, and recon–future residual correlation.*
 
 ### Latent Space Trajectory
 
 The animation below shows a single `human_creation` video (`people_04`) moving through the VideoMAE latent space over time. Each frame shows the model's current position (red star) against the background of all other validation frames (grey dots). The path traces a consistent directed movement — rather than a random walk — demonstrating that VideoMAE's latent space organises temporal progression as coherent geometric motion.
 
-![VideoMAE Latent Trajectory](VideoMAETemporalLatentSpaceTrajectory.gif)
+![VideoMAE Latent Trajectory](Figures/VideoMAETemporalLatentSpaceTrajectory.gif)
 *Figure 2: Animated UMAP trajectory for video `people_04` (human_creation category). The red star moves through the latent space as time progresses across all 8 temporal positions. The directed path confirms that temporal progression corresponds to structured geometric displacement in the latent space — not random drift.*
 
 ### Linear Probe: Category Classification
@@ -150,10 +150,10 @@ To test whether the learned representations carry semantically meaningful inform
 |---|---|---|---|---|
 | **Predicted future (59.8%)** | 7/17 correct | 17/22 correct | 19/26 correct | 6/17 correct |
 
-![Category Confusion — Predicted Future](CategoryConfusionMatrixPredictedFutureReps.png)
+![Category Confusion — Predicted Future](Figures/CategoryConfusionMatrixPredictedFutureReps.png)
 *Figure 3: Confusion matrix on predicted future representations (59.8% accuracy, one sample per video, no leakage). Human-created and meteorological categories are most linearly separable in the predicted future space.*
 
-![Category Confusion — Raw Features](CatergoryConfusion.png)
+![Category Confusion — Raw Features](Figures/CatergoryConfusion.png)
 *Figure 4: Confusion matrix on raw VideoMAE features (100% accuracy with multiple samples per video — this is the inflated result due to per-video memorisation, included to show the contrast with the correct leakage-free evaluation above).*
 
 ---
@@ -191,10 +191,10 @@ The central ablation tests whether JEPA-style masking of context tokens is benef
 
 The per-category gradient is scientifically interpretable: masking helps most for **structured, directional progressions** (biological growth, human construction) and least for **stochastic progressions** (meteorological). When temporal change follows a predictable pattern, forcing the predictor to infer missing context teaches it that pattern more effectively. When change is chaotic, the partial-observation constraint adds noise without benefit.
 
-![Ablation Comparison](Ablation_LatentMaskedVUnmaskedResults.png)
+![Ablation Comparison](Figures/Ablation_LatentMaskedVUnmaskedResults.png)
 *Figure 5: Full ablation comparison. The masked model (blue) shows consistently higher improvement over the copy-context baseline across all categories and the full distribution.*
 
-![Per-Category Violin](PreCateogryImprovementDistribution_MaskedVUnmasked.png)
+![Per-Category Violin](Figures/PreCateogryImprovementDistribution_MaskedVUnmasked.png)
 *Figure 6: Per-category improvement distribution as violin plots. The masked model's distribution is consistently higher and tighter, with fewer low-improvement outliers.*
 
 ---
