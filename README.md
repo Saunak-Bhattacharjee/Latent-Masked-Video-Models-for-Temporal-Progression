@@ -5,6 +5,8 @@ This is a github repository for latent masked video prediction using a frozen Vi
 
 ---
 
+![Architecture](Figures/Architecture_1.png)
+*Figure 1: Full pipeline. A frozen VideoMAE encoder processes the video clip and produces spatio-temporal tokens. These are split temporally into context and target halves. The context tokens are spatially masked (75% hidden) before being passed to the Latent Masked Predictor, which uses learnable [MASK] and [FUTURE] tokens under global self-attention to predict both the masked context tokens (reconstruction) and the full target frame tokens (future prediction). Both losses are computed in normalised latent space.*
 ## Motivation
 
 A fundamental question in computer vision is whether a model that has learned to represent video can also *reason about how that video evolves over time*,  without ever being explicitly taught the rules of temporal dynamics.
@@ -120,14 +122,14 @@ The residual gap (0.530 − 0.388 = 0.142) indicates that future prediction is c
 The recon–future correlation (r = 0.474) reveals that visual complexity is the dominant factor governing predictability: videos that are harder to reconstruct locally are also harder to predict forward in time.
 
 ![Fixed Evaluation](Figures/LatentMaskedVideoPredictionFixedEvaluation.png)
-*Figure 1: Full evaluation results. Top row: reconstruction residual, future prediction residual, and predictor improvement by category. Bottom row: predictor vs copy-context baseline violin, improvement distribution, and recon–future residual correlation.*
+*Figure 2: Full evaluation results. Top row: reconstruction residual, future prediction residual, and predictor improvement by category. Bottom row: predictor vs copy-context baseline violin, improvement distribution, and recon–future residual correlation.*
 
 ### Latent Space Trajectory
 
 The animation below shows a single `human_creation` video (`people_04`) moving through the VideoMAE latent space over time. Each frame shows the model's current position (red star) against the background of all other validation frames (grey dots). The path traces a consistent directed movement, rather than a random walk, demonstrating that VideoMAE's latent space organises temporal progression as coherent geometric motion.
 
 ![VideoMAE Latent Trajectory](Figures/VideoMAETemporalLatentSpaceTrajectory.gif)
-*Figure 2: Animated UMAP trajectory for video `people_04` (human_creation category). The red star moves through the latent space as time progresses across all 8 temporal positions. The directed path confirms that temporal progression corresponds to structured geometric displacement in the latent space.*
+*Figure 3: Animated UMAP trajectory for video `people_04` (human_creation category). The red star moves through the latent space as time progresses across all 8 temporal positions. The directed path confirms that temporal progression corresponds to structured geometric displacement in the latent space.*
 
 ### Linear Probe: Category Classification
 
@@ -151,10 +153,10 @@ To test whether the learned representations carry semantically meaningful inform
 | **Predicted future (59.8%)** | 7/17 correct | 17/22 correct | 19/26 correct | 6/17 correct |
 
 ![Category Confusion — Predicted Future](Figures/CategoryConfusionMatrixPredictedFutureReps.png)
-*Figure 3: Confusion matrix on predicted future representations (59.8% accuracy, one sample per video, no leakage). Human-created and meteorological categories are most linearly separable in the predicted future space.*
+*Figure 4: Confusion matrix on predicted future representations (59.8% accuracy, one sample per video, no leakage). Human-created and meteorological categories are most linearly separable in the predicted future space.*
 
 ![Category Confusion — Raw Features](Figures/CatergoryConfusion.png)
-*Figure 4: Confusion matrix on raw VideoMAE features (100% accuracy with multiple samples per video — this is the inflated result due to per-video memorisation, included to show the contrast with the correct leakage-free evaluation above).*
+*Figure 5: Confusion matrix on raw VideoMAE features (100% accuracy with multiple samples per video — this is the inflated result due to per-video memorisation, included to show the contrast with the correct leakage-free evaluation above).*
 
 ---
 
@@ -192,10 +194,10 @@ The central ablation tests whether JEPA-style masking of context tokens is benef
 The per-category gradient is scientifically interpretable: masking helps most for **structured, directional progressions** (biological growth, human construction) and least for **stochastic progressions** (meteorological). When temporal change follows a predictable pattern, forcing the predictor to infer missing context teaches it that pattern more effectively. When change is chaotic, the partial-observation constraint adds noise without benefit.
 
 ![Ablation Comparison](Figures/Ablation_LatentMaskedVUnmaskedResults.png)
-*Figure 5: Full ablation comparison. The masked model (blue) shows consistently greater improvement over the copy-context baseline across all categories and the full distribution.*
+*Figure 6: Full ablation comparison. The masked model (blue) shows consistently greater improvement over the copy-context baseline across all categories and the full distribution.*
 
 ![Per-Category Violin](Figures/PreCateogryImprovementDistribution_MaskedVUnmasked.png)
-*Figure 6: Per-category improvement distribution as violin plots. The masked model's distribution is consistently higher and tighter, with fewer low-improvement outliers.*
+*Figure 7: Per-category improvement distribution as violin plots. The masked model's distribution is consistently higher and tighter, with fewer low-improvement outliers.*
 
 ---
 
