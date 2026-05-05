@@ -19,9 +19,6 @@ This project investigates that question using **ChronoMagic-Bench**: a dataset o
 
 This is related to the **JEPA (Joint Embedding Predictive Architecture)** paradigm: learning by predicting representations in latent space rather than predicting pixels. We extend this idea temporally by predicting *future* latent states from *past* latent states, under partial spatial observation (masking).
 
-
-## What This Project Is (and Is Not)
-
 **This is:** A study of whether self-supervised video representations are geometrically structured for temporal prediction. Specifically, whether VideoMAE's latent space — trained on masked video reconstruction — implicitly encodes the *direction* of scene progression well enough that a lightweight predictor can navigate it forward in time.
 
 **This is not:** A world model in the full sense (no action conditioning, no planning). It is better described as **latent masked temporal prediction**, i.e., a component of world modelling applied to natural time-lapse progression.
