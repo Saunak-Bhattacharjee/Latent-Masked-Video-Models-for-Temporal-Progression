@@ -104,7 +104,7 @@ L = λ_recon × L_reconstruction + λ_future × L_future_prediction
 
 ### Main Results
 
-The key metric is **improvement over the copy-context baseline** — the cosine similarity gain the predictor achieves relative to predicting no change (zero displacement). A copy-context baseline of 0.000 means predicting the future equals the present is perfectly orthogonal to the actual future direction, making it a clean zero reference.
+The key metric is **improvement over the copy-context baseline**: the cosine similarity gain the predictor achieves relative to predicting no change (zero displacement). A copy-context baseline of 0.000 means predicting the future equals the present is perfectly orthogonal to the actual future direction, making it a clean zero reference.
 
 | Metric | Value | Notes |
 |---|---|---|
@@ -124,10 +124,10 @@ The recon–future correlation (r = 0.474) reveals that visual complexity is the
 
 ### Latent Space Trajectory
 
-The animation below shows a single `human_creation` video (`people_04`) moving through the VideoMAE latent space over time. Each frame shows the model's current position (red star) against the background of all other validation frames (grey dots). The path traces a consistent directed movement — rather than a random walk — demonstrating that VideoMAE's latent space organises temporal progression as coherent geometric motion.
+The animation below shows a single `human_creation` video (`people_04`) moving through the VideoMAE latent space over time. Each frame shows the model's current position (red star) against the background of all other validation frames (grey dots). The path traces a consistent directed movement, rather than a random walk, demonstrating that VideoMAE's latent space organises temporal progression as coherent geometric motion.
 
 ![VideoMAE Latent Trajectory](Figures/VideoMAETemporalLatentSpaceTrajectory.gif)
-*Figure 2: Animated UMAP trajectory for video `people_04` (human_creation category). The red star moves through the latent space as time progresses across all 8 temporal positions. The directed path confirms that temporal progression corresponds to structured geometric displacement in the latent space — not random drift.*
+*Figure 2: Animated UMAP trajectory for video `people_04` (human_creation category). The red star moves through the latent space as time progresses across all 8 temporal positions. The directed path confirms that temporal progression corresponds to structured geometric displacement in the latent space.*
 
 ### Linear Probe: Category Classification
 
@@ -192,7 +192,7 @@ The central ablation tests whether JEPA-style masking of context tokens is benef
 The per-category gradient is scientifically interpretable: masking helps most for **structured, directional progressions** (biological growth, human construction) and least for **stochastic progressions** (meteorological). When temporal change follows a predictable pattern, forcing the predictor to infer missing context teaches it that pattern more effectively. When change is chaotic, the partial-observation constraint adds noise without benefit.
 
 ![Ablation Comparison](Figures/Ablation_LatentMaskedVUnmaskedResults.png)
-*Figure 5: Full ablation comparison. The masked model (blue) shows consistently higher improvement over the copy-context baseline across all categories and the full distribution.*
+*Figure 5: Full ablation comparison. The masked model (blue) shows consistently greater improvement over the copy-context baseline across all categories and the full distribution.*
 
 ![Per-Category Violin](Figures/PreCateogryImprovementDistribution_MaskedVUnmasked.png)
 *Figure 6: Per-category improvement distribution as violin plots. The masked model's distribution is consistently higher and tighter, with fewer low-improvement outliers.*
@@ -228,7 +228,7 @@ A lightweight transformer predictor achieves 0.827 cosine similarity with the ac
 The future prediction residual (0.530) is consistently higher than the reconstruction residual (0.388) across all four progression categories. The temporal boundary is geometrically meaningful in the latent space — the future is not simply a spatially masked version of the present.
 
 **Finding 3 — Visual complexity governs predictability.**
-The recon–future residual correlation (r = 0.474) shows that videos which are harder to reconstruct locally are also harder to predict forward in time. This suggests that intrinsic scene complexity — not category identity — is the dominant factor determining how well the model can anticipate progression.
+The recon–future residual correlation (r = 0.474) indicates that videos that are harder to reconstruct locally are also more difficult to predict forward in time. This suggests that intrinsic scene complexity, rather than category identity, is the dominant factor determining how well the model can anticipate progression.
 
 **Finding 4 — JEPA-style masking significantly improves temporal prediction.**
 Masking 75% of context tokens (forcing the predictor to work under partial observation) improves the improvement score by +0.040 over full-context prediction, with p < 0.0001 (Mann-Whitney U). The benefit is consistent across all four categories and is largest for structured progressions (biological: +0.053) and smallest for stochastic ones (meteorological: +0.029).
@@ -248,8 +248,40 @@ The per-category gradient (biological > human-created > physical > meteorologica
 
 **Fixed temporal split.** The context/target split is fixed at 4/4 temporal positions (frames 0–7 as context, 8–15 as target). Variable splits and longer-horizon prediction are unexplored.
 
-**Single backbone.** Results are specific to VideoMAE ViT-B. Whether the findings generalise to other video encoders (e.g. V-JEPA 2, InternVideo) is an open question.
+**Single backbone.** Results are specific to VideoMAE ViT-B. Whether the findings generalise to other video encoders (e.g., V-JEPA 2, InternVideo) is an open question.
 
 ---
+
+## Citation
+
+If you use this work, please cite the following and other affiliated works:
+
+```bibtex
+@misc{latent_masked_video_prediction_2025,
+  title   = {Latent Masked Video Prediction: Temporal Prediction in VideoMAE Latent Space},
+  year    = {2025},
+  note    = {GitHub repository},
+  url     = {https://github.com/Saunak-Bhattacharjee/Latent-Masked-Video-Models-for-Temporal-Progression.git}
+}
+```
+
+**Dataset:**
+```bibtex
+@article{yuan2024chronomagic,
+  title   = {ChronoMagic-Bench: A Benchmark for Metamorphic Evaluation of Text-to-Time-lapse Video Generation},
+  author  = {Yuan, Shenghai and others},
+  year    = {2024}
+}
+```
+
+**Backbone:**
+```bibtex
+@article{wang2023videomae,
+  title   = {VideoMAE V2: Scaling Video Masked Autoencoders with Dual Masking},
+  author  = {Wang, Limin and others},
+  year    = {2023}
+}
+
+```
 
 
