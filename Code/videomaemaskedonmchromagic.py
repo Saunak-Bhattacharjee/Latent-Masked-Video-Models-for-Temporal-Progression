@@ -101,27 +101,22 @@ for csv_file in csv_files:
 
 print("Downloaded caption CSV files.")
 
-# ── Paths (must match what your download cell produced) ───────────────
 BENCH_ROOT   = Path('/content/ChronoMagic-Bench')
 VIDEO_SUBSET = BENCH_ROOT / 'videos_subset'
 CAPTION_DIR  = BENCH_ROOT / 'Captions_subset'
 CAPTION_DIR.mkdir(exist_ok=True)
 
-# ── Collect all mp4 files that were actually extracted ────────────────
-# The zip may have stored videos inside a subfolder, e.g.
-# Reference_Videos/biological_001.mp4 — we flatten to VIDEO_SUBSET.
+
 mp4_files = list(VIDEO_SUBSET.rglob('*.mp4'))
 print(f'mp4 files found in videos_subset: {len(mp4_files)}')
 print(f'Sample paths:')
 for f in mp4_files[:5]:
     print(f'  {f.relative_to(VIDEO_SUBSET)}')
 
-# Build {stem → absolute_path} lookup (stem = filename without extension)
 stem_to_path = {f.stem: f for f in mp4_files}
 print(f'\nUnique video stems: {len(stem_to_path)}')
 
-# ── Download the full CSV if not already present ──────────────────────
-# The CSV is tiny (< 1 MB) — always safe to fetch.
+
 
 csv_candidates = [
     BENCH_ROOT / 'ChronoMagic-Bench.csv',
@@ -131,7 +126,6 @@ full_csv_path = next((p for p in csv_candidates if p.exists()), None)
 
 if full_csv_path is None:
     print('CSV not found locally — downloading from HuggingFace ...')
-    # Try common repo paths
     for repo_filename in ('ChronoMagic-Bench.csv',
                           'Captions/ChronoMagic-Bench.csv',
                           'ChronoMagic_Bench.csv'):
@@ -158,28 +152,22 @@ if full_csv_path is None:
 full_df = pd.read_csv(full_csv_path)
 print(f'Full CSV  : {len(full_df)} rows  |  columns: {list(full_df.columns)}')
 
-# ── Filter CSV rows to only the extracted videos ──────────────────────
-# Match on videoid (exact stem) — same logic used for path resolution.
+
 
 full_df['videoid_str'] = full_df['videoid'].astype(str).str.strip()
 
-# Keep rows whose videoid appears in our stem_to_path lookup
 subset_df = full_df[full_df['videoid_str'].isin(stem_to_path)].copy()
 subset_df = subset_df.reset_index(drop=True)
 
-# Attach resolved local path
 subset_df['resolved_path'] = subset_df['videoid_str'].apply(
     lambda v: str(stem_to_path[v])
 )
 
-# Normalise category strings
 subset_df['main_category'] = subset_df['main_category'].str.lower().str.strip()
 subset_df['sub_category']  = subset_df['sub_category'].str.lower().str.strip()
 
-# Remove videoid_str helper column before saving
 subset_df_save = subset_df.drop(columns=['videoid_str'])
 
-# ── Save to Captions_subset folder ───────────────────────────────────
 SUBSET_CSV = CAPTION_DIR / 'ChronoMagic-Bench_subset.csv'
 subset_df_save.to_csv(SUBSET_CSV, index=False)
 
@@ -194,8 +182,6 @@ print()
 print(f'sub_categories present : {subset_df["sub_category"].nunique()}')
 print(subset_df[['videoid','main_category','sub_category']].head(6).to_string())
 
-# ── Category index maps ───────────────────────────────────────────────
-# Fix: Ensure no NaN values in categories to avoid sorting errors
 subset_df = subset_df.dropna(subset=['main_category'])
 
 MAIN_CATS   = sorted(subset_df['main_category'].unique().tolist())
@@ -260,7 +246,6 @@ for cat in MAIN_CATS:
     n = sum(1 for v in video_cache if v['main_cat'] == cat)
     print(f'  {cat:22s}: {n}')
 
-# ── Quick visual sanity check ─────────────────────────────────────────
 shown = {}
 if len(video_cache) > 0:
     fig, axes = plt.subplots(N_MAIN, 4, figsize=(14, 3.5 * N_MAIN))
@@ -284,9 +269,7 @@ if len(video_cache) > 0:
     plt.savefig('/content/results/sample_frames.png', dpi=150, bbox_inches='tight')
     plt.show()
 
-# ── VideoMAE ViT-B — 16 frames, patch 16×16, tubelet size 2 ──────────
-# Clean HuggingFace API: VideoMAEImageProcessor + VideoMAEModel
-# No argument naming surprises — well-tested in transformers.
+
 
 MODEL_ID   = 'MCG-NJU/videomae-base'
 N_FRAMES   = 16    # VideoMAE-base expects exactly 16 frames
@@ -297,7 +280,7 @@ processor = VideoMAEImageProcessor.from_pretrained(MODEL_ID)
 vmae      = VideoMAEModel.from_pretrained(MODEL_ID).to(DEVICE).eval()
 for p in vmae.parameters(): p.requires_grad_(False)
 
-# Probe token layout with a dummy clip
+
 dummy_frames = [np.zeros((IMG_SIZE, IMG_SIZE, 3), dtype=np.uint8)] * N_FRAMES
 inputs = processor(dummy_frames, return_tensors='pt')
 pv     = inputs['pixel_values'].to(DEVICE)   # (1, T, C, H, W)
@@ -342,17 +325,11 @@ def decode_clip(video_path, n_frames=16, img_size=224):
         container.close()
     except Exception:
         return None
-    # Pad by repeating last frame if short
+
     while len(frames) < n_frames:
         frames.append(frames[-1])
     return frames[:n_frames]   # list of n_frames PIL Images
 
-# ── Extract and cache VideoMAE token sequences ────────────────────────
-# For each video: store the full (N_TOK, ENC_D) token sequence.
-# The token sequence is ordered as [t0_patches, t1_patches, ..., t7_patches]
-# so we can split it into context and target halves temporally.
-#
-# Memory: N_TOK=1568 × ENC_D=768 × 4 bytes × 542 videos ≈ 3.3 GB — fine.
 
 FEAT_PATH = Path('/content/vmae_feat_cache.pt')
 
@@ -407,24 +384,6 @@ print(f'Token shape : {ex["tokens"].shape}  (N_TOK={N_TOK}, D={ENC_D})')
 norms = ex['tokens'].norm(dim=-1)
 print(f'Token norms : min={norms.min():.2f}  mean={norms.mean():.2f}  max={norms.max():.2f}')
 
-# ── How the token sequence is split ──────────────────────────────────
-#
-# VideoMAE produces N_TOK = N_TIME × PATCHES_PER_T tokens.
-# Tokens are ordered temporally: first PATCHES_PER_T tokens = earliest
-# time step, last PATCHES_PER_T = latest.
-#
-# We split at a random temporal boundary:
-#   context tokens = first CTX_T temporal positions → (CTX_T × P, D)
-#   target  tokens = remaining TGT_T positions      → (TGT_T × P, D)
-#
-# Then we apply LATENT MASKING to context tokens:
-#   a random mask_ratio fraction is hidden from the predictor.
-#
-# The predictor must predict:
-#   (a) masked context tokens  → reconstruction loss (like MAE)
-#   (b) all target tokens      → future prediction loss (like JEPA)
-#
-# Both losses are in normalised latent space — no pixel reconstruction.
 
 CTX_FRAC   = 0.5    # fraction of temporal positions used as context
 MASK_RATIO = 0.75   # fraction of context tokens that are masked
@@ -646,10 +605,7 @@ _r, _f = predictor(_vis, _vids, _mids)
 print(f'Recon  pred shape : {_r.shape}  (B, N_MASK={N_MASK}, D={ENC_D})')
 print(f'Future pred shape : {_f.shape}  (B, TGT_N={TGT_N},  D={ENC_D})')
 
-# ── Dual loss: reconstruction + future prediction ─────────────────────
-# Both computed as normalised MSE in token space → bounded in [0, 4].
-# lam_recon  weights the masked-context reconstruction term
-# lam_future weights the future-frame prediction term
+
 
 def latent_mask_loss(recon_pred, recon_tgt,
                       future_pred, future_tgt,
@@ -752,8 +708,6 @@ predictor.eval()
 print(f"Best  epoch={ckpt['epoch']}  loss={ckpt['loss']:.4f}")
 
 
-# ── Fixed extraction: all metrics in normalised latent space ──────────
-
 @torch.no_grad()
 def extract_results_fixed(loader):
     """
@@ -774,18 +728,17 @@ def extract_results_fixed(loader):
 
         recon_pred, future_pred = predictor(vis, vids, mids)
 
-        # ── Normalise everything before computing distances ────────────
-        # Reconstruction quality
+
         rp_n = F.normalize(recon_pred.reshape(B*Nm, D), dim=-1).reshape(B, Nm, D)
         rt_n = F.normalize(mgt.reshape(B*Nm, D),        dim=-1).reshape(B, Nm, D)
         recon_res = (rp_n - rt_n).norm(dim=-1).mean(dim=-1)   # (B,) ∈ [0,2]
 
-        # Future prediction quality
+
         fp_n = F.normalize(future_pred.reshape(B*Nt, D), dim=-1).reshape(B, Nt, D)
         ft_n = F.normalize(tgt.reshape(B*Nt, D),          dim=-1).reshape(B, Nt, D)
         future_res = (fp_n - ft_n).norm(dim=-1).mean(dim=-1)  # (B,) ∈ [0,2]
 
-        # Image-level means for directional analysis
+
         ctx_mean  = vis.mean(dim=1)           # (B, D)  mean over visible context patches
         tgt_mean  = tgt.mean(dim=1)           # (B, D)  mean over target patches
         pred_mean = future_pred.mean(dim=1)   # (B, D)  predictor's future estimate
@@ -793,15 +746,13 @@ def extract_results_fixed(loader):
         actual_dir = tgt_mean - ctx_mean      # actual displacement direction
         pred_dir   = pred_mean - ctx_mean     # predictor's displacement direction
 
-        # ── Predictor cosine sim ──────────────────────────────────────
         future_cos = F.cosine_similarity(pred_dir, actual_dir, dim=-1)  # (B,)
 
-        # ── Copy-context baseline: predict future = context (Δ=0) ─────
         # If actual_dir has zero norm (target ≈ context), cosine is undefined → 0.
         zero_dir   = torch.zeros_like(ctx_mean)  # predict no change
         copy_cos   = F.cosine_similarity(zero_dir, actual_dir, dim=-1)  # should be ~0
 
-        # ── Improvement over baseline ─────────────────────────────────
+
         improvement = future_cos - copy_cos    # >0 means predictor actually helps
 
         out['ctx_r'].append(ctx_mean.cpu().float().numpy())
@@ -840,10 +791,7 @@ elif R['improvement'].mean() > 0:
 else:
     print('  ❌ No improvement over copy-context — predictor learned nothing useful.')
 
-# ── Fixed linear probe: one sample per video ──────────────────────────
-# Build per-video representations by running one forward pass per video
-# with no randomness (fixed mask seed), then evaluate on a true held-out
-# set where train and val videos are completely separate.
+
 
 @torch.no_grad()
 def extract_one_per_video(feat_cache_split, predictor, device):
@@ -860,7 +808,6 @@ def extract_one_per_video(feat_cache_split, predictor, device):
         ctx_all = tok[:CTX_N]   # (CTX_N, D)
         tgt_all = tok[CTX_N:]   # (TGT_N, D)
 
-        # Fixed deterministic mask: always mask the first N_MASK tokens
         vis_ids  = torch.arange(N_MASK, CTX_N)    # (N_VIS,)
         mask_ids = torch.arange(0, N_MASK)         # (N_MASK,)
 
@@ -869,7 +816,6 @@ def extract_one_per_video(feat_cache_split, predictor, device):
         msk_ids_ = mask_ids.unsqueeze(0).to(device)            # (1, N_MASK)
 
         _, future_pred = predictor(vis_tok, vis_ids_, msk_ids_)
-        # Use predicted future as the representation — tests what the predictor learned
         rep = future_pred.mean(dim=1).squeeze(0).cpu().float().numpy()  # (D,)
 
         X.append(rep)
@@ -934,7 +880,7 @@ plt.tight_layout()
 plt.savefig('/content/results/confusion_fixed.png', dpi=150, bbox_inches='tight')
 plt.show()
 
-# ── Analysis plots with corrected metrics ─────────────────────────────
+
 fig, axes = plt.subplots(2, 3, figsize=(18, 10))
 
 # A. Recon residual by category (normalised)
@@ -994,7 +940,6 @@ plt.tight_layout()
 plt.savefig('/content/results/analysis_fixed.png', dpi=150, bbox_inches='tight')
 plt.show()
 
-# ── Linear probes ─────────────────────────────────────────────────────
 X = StandardScaler().fit_transform(R['ctx_r'])
 y = R['main_cat']
 n = int(0.7 * len(X))
@@ -1023,7 +968,6 @@ plt.tight_layout()
 plt.savefig('/content/results/confusion.png', dpi=150, bbox_inches='tight')
 plt.show()
 
-# ── UMAP + trajectory GIF ─────────────────────────────────────────────
 try:
     import umap
 
@@ -1054,7 +998,6 @@ try:
 
     cmap = plt.cm.tab10
 
-    # ── Static UMAP ───────────────────────────────────────────────────
     fig, ax = plt.subplots(figsize=(9, 7))
     for ci, cname in enumerate(cat_names):
         mask = all_cats == ci
@@ -1068,7 +1011,6 @@ try:
     plt.savefig('/content/results/umap_static.png', dpi=150, bbox_inches='tight')
     plt.show()
 
-    # ── GIF: single video's temporal trajectory ───────────────────────
     # Pick video with all N_TIME temporal positions represented
     unique_vids, counts = np.unique(all_vids, return_counts=True)
     gif_vi = unique_vids[counts == N_TIME][0]
@@ -1188,9 +1130,7 @@ with open('/content/results/summary_fixed.json', 'w') as f:
     }, f, indent=2)
 print('Saved to /content/results/summary_fixed.json')
 
-# ── Dataset that passes ALL context tokens — no masking ───────────────
-# The predictor sees every context token, just as a standard encoder would.
-# Target tokens are identical to the masked experiment so results are comparable.
+
 
 class UnmaskedVideoDataset(Dataset):
     """
@@ -1246,10 +1186,7 @@ b = next(iter(train_loader_unmasked))
 print(f'ctx_tokens : {b["ctx_tokens"].shape}  (B, CTX_N={CTX_N}, D={ENC_D})')
 print(f'tgt_tokens : {b["tgt_tokens"].shape}  (B, TGT_N={TGT_N}, D={ENC_D})')
 
-# ── Unmasked predictor — same architecture as the masked one ──────────
-# Only difference: input is the full CTX_N context tokens.
-# There is no reconstruction head — only a future prediction head,
-# because there are no masked positions to reconstruct.
+
 
 class UnmaskedTemporalPredictor(nn.Module):
     """
@@ -1325,7 +1262,6 @@ _c  = b['ctx_tokens'].to(DEVICE)
 _o  = predictor_unmasked(_c)
 print(f'Output shape : {_o.shape}  (B, TGT_N={TGT_N}, D={ENC_D})')
 
-# ── Loss: future prediction only (no reconstruction term) ─────────────
 
 def future_only_loss(future_pred, future_tgt):
     B, Nt, D = future_pred.shape
@@ -1335,7 +1271,6 @@ def future_only_loss(future_pred, future_tgt):
     return loss, {'future': loss.item()}
 
 
-# ── Identical training schedule as the masked predictor ───────────────
 N_EPOCHS_ABL  = 60
 BASE_LR_ABL   = 1e-4
 WEIGHT_DECAY  = 1e-4
@@ -1461,7 +1396,6 @@ print(f'  Predictor cosine : {R_abl["future_cos"].mean():.4f}')
 print(f'  Copy baseline    : {R_abl["copy_cos"].mean():.4f}')
 print(f'  Improvement      : {R_abl["improvement"].mean():.4f}')
 
-# ── Side-by-side comparison: masked vs unmasked ───────────────────────
 
 masked_imp   = R['improvement']       # from main notebook
 unmasked_imp = R_abl['improvement']
@@ -1508,10 +1442,8 @@ if pval < 0.05:
 else:
     print('  Not significant — difference may be due to variance.')
 
-# ── Comparison visualisation ──────────────────────────────────────────
 fig, axes = plt.subplots(2, 3, figsize=(18, 10))
 
-# A. Improvement distribution: masked vs unmasked
 axes[0,0].hist(masked_imp,   bins=30, alpha=0.6, color='steelblue',
                edgecolor='white', label=f'Masked  (mean={masked_imp.mean():.3f})')
 axes[0,0].hist(unmasked_imp, bins=30, alpha=0.6, color='darkorange',
@@ -1523,7 +1455,6 @@ axes[0,0].set(xlabel='Improvement over copy-context baseline')
 axes[0,0].set_title('Improvement Distribution\nMasked vs Unmasked')
 axes[0,0].legend(); axes[0,0].grid(alpha=0.3)
 
-# B. Future residual: masked vs unmasked
 axes[0,1].hist(masked_res,   bins=30, alpha=0.6, color='steelblue',
                edgecolor='white', label=f'Masked  (mean={masked_res.mean():.3f})')
 axes[0,1].hist(unmasked_res, bins=30, alpha=0.6, color='darkorange',
@@ -1534,7 +1465,6 @@ axes[0,1].set(xlabel='Normalised future residual ∈ [0,2]')
 axes[0,1].set_title('Future Prediction Residual\nMasked vs Unmasked')
 axes[0,1].legend(); axes[0,1].grid(alpha=0.3)
 
-# C. Cosine similarity: masked vs unmasked
 axes[0,2].hist(masked_cos,   bins=30, alpha=0.6, color='steelblue',
                edgecolor='white', label=f'Masked  (mean={masked_cos.mean():.3f})')
 axes[0,2].hist(unmasked_cos, bins=30, alpha=0.6, color='darkorange',
@@ -1545,7 +1475,6 @@ axes[0,2].set(xlabel='Cosine similarity with actual future direction')
 axes[0,2].set_title('Future Direction Cosine Similarity\nMasked vs Unmasked')
 axes[0,2].legend(); axes[0,2].grid(alpha=0.3)
 
-# D. Per-category improvement: masked vs unmasked (grouped box)
 data_masked   = [masked_imp[R['main_cat']==i]   for i in range(N_MAIN)]
 data_unmasked = [unmasked_imp[cat_abl==i]        for i in range(N_MAIN)]
 data_masked   = [d for d in data_masked   if len(d) > 0]
@@ -1560,7 +1489,6 @@ for ci, (dm, du) in enumerate(zip(data_masked, data_unmasked)):
                   alpha=0.8, label='Masked'   if ci==0 else '')
     axes[1,0].bar(x[ci] + w/2, du.mean(),   w, color='darkorange',
                   alpha=0.8, label='Unmasked' if ci==0 else '')
-    # Error bars (std)
     axes[1,0].errorbar(x[ci] - w/2, dm.mean(), yerr=dm.std(),
                        fmt='none', c='black', capsize=4, lw=1.5)
     axes[1,0].errorbar(x[ci] + w/2, du.mean(), yerr=du.std(),
@@ -1571,7 +1499,6 @@ axes[1,0].set(ylabel='Mean improvement over copy-context')
 axes[1,0].set_title('Per-Category Improvement\nMasked vs Unmasked')
 axes[1,0].legend(); axes[1,0].grid(alpha=0.3)
 
-# E. Training loss curves side by side
 ep_main = history['epoch']
 ep_abl  = history_abl['epoch']
 axes[1,1].plot(ep_main, history['loss'],      lw=2, c='steelblue',  label='Masked (total)')
@@ -1582,7 +1509,6 @@ axes[1,1].set(xlabel='Epoch', ylabel='Loss')
 axes[1,1].set_title('Training Loss Curves')
 axes[1,1].legend(); axes[1,1].grid(alpha=0.3)
 
-# F. Summary bar chart
 metrics   = ['Future\nResidual↓', 'Predictor\nCosine↑', 'Improvement\nover Copy↑']
 vals_m    = [masked_res.mean(),   masked_cos.mean(),   masked_imp.mean()]
 vals_u    = [unmasked_res.mean(), unmasked_cos.mean(), unmasked_imp.mean()]
@@ -1604,7 +1530,6 @@ plt.tight_layout()
 plt.savefig('/content/results/ablation_comparison.png', dpi=150, bbox_inches='tight')
 plt.show()
 
-# ── Per-category detailed breakdown ───────────────────────────────────
 fig, axes = plt.subplots(1, N_MAIN, figsize=(5*N_MAIN, 5), sharey=True)
 if N_MAIN == 1: axes = [axes]
 
@@ -1628,7 +1553,6 @@ plt.tight_layout()
 plt.savefig('/content/results/ablation_per_category.png', dpi=150, bbox_inches='tight')
 plt.show()
 
-# ── Save full ablation results ─────────────────────────────────────────
 from scipy import stats
 
 stat, pval = stats.mannwhitneyu(
