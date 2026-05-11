@@ -221,7 +221,7 @@ The per-category gradient is scientifically interpretable: masking helps most fo
 **Finding 1 — VideoMAE's latent space is geometrically structured for temporal prediction.**
 A lightweight transformer predictor achieves 0.827 cosine similarity with the actual future temporal direction, compared to a copy-context baseline of 0.000. This demonstrates that the backbone's representations encode directional temporal information that a predictor can exploit without any pixel reconstruction.
 
-**Finding 2 — Future prediction is harder than reconstruction, and the gap is real.**
+**Finding 2 — Future prediction is harder than reconstruction**
 The future prediction residual (0.530) is consistently higher than the reconstruction residual (0.388) across all four progression categories. The temporal boundary is geometrically meaningful in the latent space — the future is not simply a spatially masked version of the present.
 
 **Finding 3 — Visual complexity governs predictability.**
